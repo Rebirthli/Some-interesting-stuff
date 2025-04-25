@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MultiGemini Chat</title>
+    <!-- Include Google AI SDK -->
+    <script type="module">
+        import { GoogleGenerativeAI } from "https://esm.run/@google/generative-ai";
+        window.GoogleGenerativeAI = GoogleGenerativeAI;
+    </script>
+    <style>
+        /* Dark Theme CSS - Remains the same */
+        :root {
+            --bg-color: #1e1e1e; /* Dark background */
+            --text-color: #e0e0e0; /* Light text */
+            --primary-color: #4285F4; /* Google Blue */
+            --secondary-color: #0F9D58; /* Google Green */
+            --error-color: #DB4437; /* Google Red */
+            --container-bg: #2a2a2a; /* Slightly lighter dark */
+            --input-bg: #333333; /* Input background */
+            --border-color: #444444; /* Border color */
+            --hover-primary: #3367D6;
+            --hover-secondary: #0B8043;
+            --hover-error: #C53929;
+            --disabled-color: #555555; /* Disabled button background */
+            --user-bubble-bg: #1a73e8; /* Brighter Google Blue */
+            --llm1-bubble-bg: #0d47a1; /* Darker Blue */
+            --llm2-bubble-bg: #1e8e3e; /* Darker Google Green */
+            --llm3-bubble-bg: #e8710a; /* Google Orange */
+            --llm4-bubble-bg: #8f4bdc; /* Google Purple */
+            --scrollbar-thumb: #555;
+            --scrollbar-track: #333;
+            --thinking-color: #aaaaaa; /* Thinking... text */
+            --metadata-color: #aaaaaa; /* Timestamp color */
+        }
+        /* Base styles - mostly same */
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 900px; margin: 0 auto; padding: 20px; background-color: var(--bg-color); color: var(--text-color); }
+        h1, h2, h3 { color: var(--text-color); }
+        .settings { background-color: var(--container-bg); padding: 15px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.3); margin-bottom: 20px; border: 1px solid var(--border-color); }
+        .settings-main { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; }
+        .settings-bots { flex: 2; }
+        .settings-controls { flex: 1; display: flex; flex-direction: column; align-items: flex-end; }
+        .settings-row { margin-bottom: 10px; display: flex; align-items: center; gap: 5px; flex-wrap: wrap; } /* Reduced gap */
+        /* Adjusted label width */
+        label { display: inline-block; min-width: 90px; font-weight: bold; color: var(--text-color); text-align: right; margin-right: 5px; }
+        /* Smaller checkbox label */
+        label.checkbox-label { min-width: auto; font-weight: normal; margin-right: 10px; }
+        input[type="text"], input[type="password"], select, textarea { padding: 8px; border: 1px solid var(--border-color); border-radius: 4px; background-color: var(--input-bg); color: var(--text-color); }
+        input[type="text"], input[type="password"], select { flex-grow: 1; min-width: 150px; } /* Allow growth */
+        select { cursor: pointer; }
+        input[type="number"] { width: 60px; padding: 8px; border: 1px solid var(--border-color); border-radius: 4px; background-color: var(--input-bg); color: var(--text-color); }
+        input[type="checkbox"] { margin-right: 3px; cursor: pointer; }
+        input::placeholder, textarea::placeholder { color: #888; }
+        .api-key-row { margin-bottom: 15px; margin-top: 5px; display: flex; align-items: center; justify-content: flex-end; }
+        .api-key-row label { width: auto; margin-right: 10px; }
+        .api-key-row input { width: 250px; }
+        .chat-container { height: 500px; overflow-y: auto; background-color: var(--container-bg); padding: 15px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.3); border: 1px solid var(--border-color); scrollbar-width: thin; scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track); }
+        .chat-container::-webkit-scrollbar { width: 8px; } .chat-container::-webkit-scrollbar-track { background: var(--scrollbar-track); border-radius: 10px; } .chat-container::-webkit-scrollbar-thumb { background-color: var(--scrollbar-thumb); border-radius: 10px; border: 2px solid var(--scrollbar-track); }
+        .message { margin-bottom: 15px; max-width: 85%; clear: both; display: flex; flex-direction: column; }
+        .message.user { align-items: flex-end; } .message.llm1, .message.llm2, .message.llm3, .message.llm4 { align-items: flex-start; }
+        .message-header { display: flex; align-items: center; margin-bottom: 3px; font-size: 13px; } .message.user .message-header { flex-direction: row-reverse; }
+        .sender { font-weight: bold; color: #ccc; margin: 0 8px; } .metadata { color: var(--metadata-color); font-size: 11px; }
+        .bubble { padding: 10px 15px; border-radius: 18px; display: inline-block; max-width: 100%; word-wrap: break-word; color: #ffffff; position: relative; }
+         .user .bubble { background-color: var(--user-bubble-bg); border-bottom-right-radius: 4px; align-self: flex-end; }
+         .llm1 .bubble { background-color: var(--llm1-bubble-bg); border-bottom-left-radius: 4px; align-self: flex-start; }
+         .llm2 .bubble { background-color: var(--llm2-bubble-bg); border-bottom-left-radius: 4px; align-self: flex-start; }
+         .llm3 .bubble { background-color: var(--llm3-bubble-bg); border-bottom-left-radius: 4px; align-self: flex-start; }
+         .llm4 .bubble { background-color: var(--llm4-bubble-bg); border-bottom-left-radius: 4px; align-self: flex-start; }
+        .input-area { margin-top: 20px; display: flex; gap: 10px; }
+        #user-input { flex: 1; padding: 12px; border: 1px solid var(--border-color); border-radius: 20px; font-size: 16px; background-color: var(--input-bg); color: var(--text-color); }
+        button { padding: 10px 20px; color: white; border: none; border-radius: 20px; cursor: pointer; font-size: 16px; transition: background-color 0.2s ease; }
+        #send-button { background-color: var(--primary-color); } #send-button:hover { background-color: var(--hover-primary); }
+        #stop-conversation { background-color: var(--error-color); } #stop-conversation:hover { background-color: var(--hover-error); }
+        #config-button { background-color: var(--secondary-color); margin-bottom: 10px; } #config-button:hover { background-color: var(--hover-secondary); }
+        #save-config { background-color: var(--primary-color); } #save-config:hover { background-color: var(--hover-primary); }
+        button:disabled { background-color: var(--disabled-color); cursor: not-allowed; }
+        .thinking { font-style: italic; color: var(--thinking-color); }
+        .controls { display: flex; gap: 10px; align-items: center; margin-top: 10px; }
+        .modal { display: none; position: fixed; z-index: 1; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.7); }
+        .modal-content { background-color: var(--container-bg); margin: 3% auto; padding: 20px; border-radius: 10px; width: 90%; max-width: 800px; /* Wider for prompts */ box-shadow: 0 4px 15px rgba(0,0,0,0.5); border: 1px solid var(--border-color); color: var(--text-color); }
+        .close { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; line-height: 1; } .close:hover { color: var(--text-color); }
+        .config-columns { display: flex; gap: 20px; flex-wrap: wrap; } /* Allow wrapping */
+        .config-column { flex: 1; min-width: 300px; } /* Minimum width for columns */
+        .config-section { margin-bottom: 20px; } .config-section h3 { margin-top: 0; border-bottom: 1px solid var(--border-color); padding-bottom: 5px; }
+        .config-row { display: flex; margin-bottom: 10px; align-items: center; flex-wrap: wrap; gap: 5px;} /* Allow wrapping in rows */
+        .config-row label { width: 100px; /* Adjusted width */ text-align: right; flex-shrink: 0; }
+        .config-row input[type="number"], .config-row select { flex-grow: 1; min-width: 100px; } /* Allow growth */
+        .config-row textarea { flex-basis: 100%; /* Take full width */ min-height: 60px; resize: vertical; background-color: var(--input-bg); color: var(--text-color); border: 1px solid var(--border-color); padding: 8px; border-radius: 4px;}
+        .config-row label.textarea-label { width: 100%; text-align: left; margin-bottom: 3px; } /* Full width label for textarea */
+        .config-actions { text-align: right; margin-top: 20px; }
+        .loading-models { color: var(--thinking-color); font-style: italic; }
+        .bot-config-block { margin-bottom: 15px; padding: 15px; border: 1px solid var(--border-color); border-radius: 8px; background-color: #333; }
+        .bot-config-block h4 { margin-top: 0; margin-bottom: 10px; color: var(--primary-color); }
+    </style>
+</head>
+<body>
+    <h1>MultiGemini Chat</h1>
+
+    <div class="settings">
+        <div class="settings-main">
+            <div class="settings-bots">
+                <!-- Bot 1 -->
+                <div class="settings-row">
+                    <input type="checkbox" id="llm1-enabled" checked> <!-- ADDED Checkbox -->
+                    <label for="llm1-name" class="inline-label">Bot 1:</label>
+                    <input type="text" id="llm1-name" value="Gemini-1">
+                    <label for="llm1-model" class="inline-label">Model:</label>
+                    <select id="llm1-model" disabled>
+                        <option value="">Select Model</option>
+                    </select>
+                </div>
+                <!-- Bot 2 -->
+                <div class="settings-row">
+                     <input type="checkbox" id="llm2-enabled" checked> <!-- ADDED Checkbox -->
+                    <label for="llm2-name" class="inline-label">Bot 2:</label>
+                    <input type="text" id="llm2-name" value="Gemini-2">
+                    <label for="llm2-model" class="inline-label">Model:</label>
+                    <select id="llm2-model" disabled>
+                        <option value="">Select Model</option>
+                    </select>
+                </div>
+                 <!-- Bot 3 -->
+                 <div class="settings-row">
+                     <input type="checkbox" id="llm3-enabled" checked> <!-- ADDED Checkbox -->
+                    <label for="llm3-name" class="inline-label">Bot 3:</label>
+                    <input type="text" id="llm3-name" value="Gemini-3">
+                    <label for="llm3-model" class="inline-label">Model:</label>
+                    <select id="llm3-model" disabled>
+                        <option value="">Select Model</option>
+                    </select>
+                </div>
+                 <!-- Bot 4 -->
+                 <div class="settings-row">
+                     <input type="checkbox" id="llm4-enabled" checked> <!-- ADDED Checkbox -->
+                    <label for="llm4-name" class="inline-label">Bot 4:</label>
+                    <input type="text" id="llm4-name" value="Gemini-4">
+                    <label for="llm4-model" class="inline-label">Model:</label>
+                    <select id="llm4-model" disabled>
+                        <option value="">Select Model</option>
+                    </select>
+                </div>
+            </div>
+            <div class="settings-controls">
+                 <div class="api-key-row">
+                     <label for="api-key">API Key:</label>
+                     <input type="password" id="api-key" placeholder="Enter Google AI API Key">
+                 </div>
+                 <div class="settings-row" style="justify-content: flex-end;">
+                    <label for="auto-turns" style="width: auto; margin-right: 5px;">Auto-turns:</label>
+                    <input type="number" id="auto-turns" value="1" min="0" max="10">
+                </div>
+                 <button id="config-button">Advanced Settings</button>
+                 <span id="model-loading-status" class="loading-models" style="display: none;"></span>
+            </div>
+        </div>
+    </div>
+
+    <div class="chat-container" id="chat-container">
+        <!-- Chat messages will appear here -->
+        <div class="message system-info">
+            <div class="bubble" style="background-color: var(--container-bg); color: var(--metadata-color); font-style: italic; width: 100%; text-align: center;">
+                Enter your Google AI API Key to load models. Enable bots and select models to begin.
+            </div>
+        </div>
+    </div>
+
+    <div class="input-area">
+        <input type="text" id="user-input" placeholder="Type your message here..." disabled>
+        <button id="send-button" disabled>Send</button>
+    </div>
+
+    <div class="controls">
+        <button id="stop-conversation" disabled>Stop Bot Conversation</button>
+    </div>
+
+    <!-- Configuration Modal -->
+    <div id="config-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Advanced Configuration</h2>
+
+            <div class="config-columns">
+                <div class="config-column">
+                    <!-- Bot 1 Config -->
+                    <div class="config-section bot-config-block">
+                        <h4>Bot 1 Settings (<span class="bot-name-modal">Gemini-1</span>)</h4>
+                        <div class="config-row">
+                            <label for="llm1-temperature">Temperature:</label>
+                            <input type="number" id="llm1-temperature" value="0.7" min="0" max="1" step="0.1">
+                            <label for="llm1-top-p">Top P:</label>
+                            <input type="number" id="llm1-top-p" value="0.95" min="0" max="1" step="0.05">
+                        </div>
+                         <div class="config-row">
+                             <label for="llm1-max-tokens">Max Tokens:</label>
+                            <input type="number" id="llm1-max-tokens" value="1024" min="50" max="8192">
+                        </div>
+                        <!-- ADDED Individual Prompt -->
+                        <div class="config-row">
+                             <label for="llm1-system-prompt" class="textarea-label">System Prompt:</label>
+                             <textarea id="llm1-system-prompt" rows="3" placeholder="Enter specific instructions for Bot 1..."></textarea>
+                         </div>
+                    </div>
+                     <!-- Bot 3 Config -->
+                    <div class="config-section bot-config-block">
+                        <h4>Bot 3 Settings (<span class="bot-name-modal">Gemini-3</span>)</h4>
+                         <div class="config-row">
+                            <label for="llm3-temperature">Temperature:</label>
+                            <input type="number" id="llm3-temperature" value="0.7" min="0" max="1" step="0.1">
+                             <label for="llm3-top-p">Top P:</label>
+                            <input type="number" id="llm3-top-p" value="0.95" min="0" max="1" step="0.05">
+                        </div>
+                        <div class="config-row">
+                            <label for="llm3-max-tokens">Max Tokens:</label>
+                            <input type="number" id="llm3-max-tokens" value="1024" min="50" max="8192">
+                        </div>
+                        <!-- ADDED Individual Prompt -->
+                        <div class="config-row">
+                             <label for="llm3-system-prompt" class="textarea-label">System Prompt:</label>
+                             <textarea id="llm3-system-prompt" rows="3" placeholder="Enter specific instructions for Bot 3..."></textarea>
+                         </div>
+                    </div>
+                </div>
+
+                <div class="config-column">
+                     <!-- Bot 2 Config -->
+                    <div class="config-section bot-config-block">
+                        <h4>Bot 2 Settings (<span class="bot-name-modal">Gemini-2</span>)</h4>
+                        <div class="config-row">
+                            <label for="llm2-temperature">Temperature:</label>
+                            <input type="number" id="llm2-temperature" value="0.7" min="0" max="1" step="0.1">
+                             <label for="llm2-top-p">Top P:</label>
+                            <input type="number" id="llm2-top-p" value="0.95" min="0" max="1" step="0.05">
+                        </div>
+                         <div class="config-row">
+                             <label for="llm2-max-tokens">Max Tokens:</label>
+                            <input type="number" id="llm2-max-tokens" value="1024" min="50" max="8192">
+                        </div>
+                        <!-- ADDED Individual Prompt -->
+                        <div class="config-row">
+                             <label for="llm2-system-prompt" class="textarea-label">System Prompt:</label>
+                             <textarea id="llm2-system-prompt" rows="3" placeholder="Enter specific instructions for Bot 2..."></textarea>
+                         </div>
+                    </div>
+                    <!-- Bot 4 Config -->
+                    <div class="config-section bot-config-block">
+                         <h4>Bot 4 Settings (<span class="bot-name-modal">Gemini-4</span>)</h4>
+                         <div class="config-row">
+                            <label for="llm4-temperature">Temperature:</label>
+                            <input type="number" id="llm4-temperature" value="0.7" min="0" max="1" step="0.1">
+                             <label for="llm4-top-p">Top P:</label>
+                            <input type="number" id="llm4-top-p" value="0.95" min="0" max="1" step="0.05">
+                        </div>
+                         <div class="config-row">
+                            <label for="llm4-max-tokens">Max Tokens:</label>
+                            <input type="number" id="llm4-max-tokens" value="1024" min="50" max="8192">
+                        </div>
+                        <!-- ADDED Individual Prompt -->
+                        <div class="config-row">
+                             <label for="llm4-system-prompt" class="textarea-label">System Prompt:</label>
+                             <textarea id="llm4-system-prompt" rows="3" placeholder="Enter specific instructions for Bot 4..."></textarea>
+                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- REMOVED Context Settings Section -->
+            <!-- <div class="config-section"> ... </div> -->
+
+            <div class="config-actions">
+                <button id="save-config">Save Settings</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        // Ensure SDK is loaded before running main script
+        if (!window.GoogleGenerativeAI) {
+            console.error("GoogleGenerativeAI SDK not loaded!");
+            alert("Error: Google AI SDK failed to load. Please check the console and network connection.");
+        } else {
+            const GoogleGenerativeAI = window.GoogleGenerativeAI; // Get constructor from global scope
+
+            document.addEventListener('DOMContentLoaded', function() {
+                // --- Constants ---
+                const API_ENDPOINT_BASE = "https://generativelanguage.googleapis.com/v1beta/";
+
+                // --- DOM Element References ---
+                const chatContainer = document.getElementById('chat-container');
+                const userInput = document.getElementById('user-input');
+                const sendButton = document.getElementById('send-button');
+                const stopButton = document.getElementById('stop-conversation');
+                const configButton = document.getElementById('config-button');
+                const configModal = document.getElementById('config-modal');
+                const closeModalBtn = configModal.querySelector('.close');
+                const saveConfigBtn = document.getElementById('save-config');
+                const apiKeyInput = document.getElementById('api-key');
+                const autoTurnsInput = document.getElementById('auto-turns');
+                const modelLoadingStatus = document.getElementById('model-loading-status');
+
+                // Updated botElements to include checkbox
+                const botElements = [
+                    { nameInput: document.getElementById('llm1-name'), modelSelect: document.getElementById('llm1-model'), configPrefix: 'llm1', enabledCheckbox: document.getElementById('llm1-enabled') },
+                    { nameInput: document.getElementById('llm2-name'), modelSelect: document.getElementById('llm2-model'), configPrefix: 'llm2', enabledCheckbox: document.getElementById('llm2-enabled') },
+                    { nameInput: document.getElementById('llm3-name'), modelSelect: document.getElementById('llm3-model'), configPrefix: 'llm3', enabledCheckbox: document.getElementById('llm3-enabled') },
+                    { nameInput: document.getElementById('llm4-name'), modelSelect: document.getElementById('llm4-model'), configPrefix: 'llm4', enabledCheckbox: document.getElementById('llm4-enabled') },
+                ];
+
+                const modalBotNameSpans = configModal.querySelectorAll('.bot-name-modal');
+
+                // --- State variables ---
+                let isBotConversationActive = false;
+                let currentAbortController = null;
+                let chatHistory = [];
+                let messageCounter = 0;
+                let apiKey = '';
+                let genAI = null;
+                let availableModels = [];
+                let modelsLoaded = false;
+
+                 // Default prompt can be customized
+                const DEFAULT_SYSTEM_PROMPT = "You are a helpful AI assistant. Engage in the conversation naturally.";
+
+                // Bot configurations - Added isEnabled and systemPrompt
+                let bots = [
+                    { name: 'Gemini-1', isEnabled: true, modelId: '', systemPrompt: DEFAULT_SYSTEM_PROMPT, config: { temperature: 0.7, maxOutputTokens: 1024, topP: 0.95 } },
+                    { name: 'Gemini-2', isEnabled: true, modelId: '', systemPrompt: DEFAULT_SYSTEM_PROMPT, config: { temperature: 0.7, maxOutputTokens: 1024, topP: 0.95 } },
+                    { name: 'Gemini-3', isEnabled: true, modelId: '', systemPrompt: DEFAULT_SYSTEM_PROMPT, config: { temperature: 0.7, maxOutputTokens: 1024, topP: 0.95 } },
+                    { name: 'Gemini-4', isEnabled: true, modelId: '', systemPrompt: DEFAULT_SYSTEM_PROMPT, config: { temperature: 0.7, maxOutputTokens: 1024, topP: 0.95 } },
+                ];
+
+                // REMOVED: contextConfig (replaced by individual prompts)
+                // let contextConfig = { systemPrompt: document.getElementById('system-prompt').value };
+
+                // --- Function Definitions ---
+
+                // Initialize SDK and Fetch Models via REST (remains mostly the same)
+                async function initializeAndFetchModels() { /* ... function content remains the same ... */
+                    console.log('initializeAndFetchModels called.');
+                    apiKey = apiKeyInput.value.trim();
+
+                    if (!apiKey) {
+                        console.warn("API Key is not set.");
+                        genAI = null; modelsLoaded = false; availableModels = [];
+                        populateModelSelectors("-- Enter API Key to Load Models --");
+                        setControlsState(false); apiKeyInput.disabled = false;
+                        modelLoadingStatus.textContent = "API Key needed"; modelLoadingStatus.style.display = 'inline';
+                        return false;
+                    }
+                    setControlsState(false); apiKeyInput.disabled = true;
+                    modelLoadingStatus.textContent = "Initializing & Loading Models..."; modelLoadingStatus.style.display = 'inline';
+                    modelsLoaded = false;
+                    try {
+                        console.log('Attempting to create GoogleGenerativeAI instance...');
+                        genAI = new GoogleGenerativeAI(apiKey);
+                        console.log("GoogleGenerativeAI SDK instance created successfully.");
+                    } catch (error) {
+                        console.error("Failed to initialize GoogleGenerativeAI SDK instance:", error);
+                        genAI = null; modelLoadingStatus.textContent = "SDK Init Failed, Trying REST...";
+                    }
+                    const listModelsUrl = `${API_ENDPOINT_BASE}models?key=${apiKey}`;
+                    try {
+                        console.log("Attempting to fetch models via REST:", listModelsUrl);
+                        const response = await fetch(listModelsUrl);
+                        if (!response.ok) { /* ... error handling ... */ throw new Error(`Failed list models (REST): ${response.status}`); }
+                        const data = await response.json(); console.log("REST Models Response:", data);
+                        const compatibleModels = (data.models || []) .filter(m => m.name.startsWith('models/') && m.supportedGenerationMethods?.includes('generateContent')) .sort((a, b) => (a.displayName || a.name).localeCompare(b.displayName || b.name));
+                        availableModels = compatibleModels.map(m => ({ name: m.name, displayName: m.displayName }));
+                        console.log("Filtered available models (REST):", availableModels);
+                        if (availableModels.length > 0) {
+                            populateModelSelectors();
+                            modelLoadingStatus.textContent = "Models loaded"; setTimeout(() => { modelLoadingStatus.style.display = 'none'; }, 2000);
+                            modelsLoaded = true; setControlsState(isBotConversationActive);
+                        } else {
+                            populateModelSelectors("No compatible models found.");
+                            modelLoadingStatus.textContent = "No compatible (generateContent) models found."; modelLoadingStatus.style.display = 'inline';
+                            modelsLoaded = false; setControlsState(isBotConversationActive);
+                        }
+                        return modelsLoaded;
+                    } catch (error) {
+                        console.error("Error fetching models via REST:", error);
+                        alert(`Failed to fetch models. Check API Key/Network. Error: ${error.message}`);
+                        modelsLoaded = false; availableModels = [];
+                        populateModelSelectors("Error loading models. Check Key/Console.");
+                        modelLoadingStatus.textContent = "Error loading models!"; modelLoadingStatus.style.display = 'inline';
+                        setControlsState(isBotConversationActive); apiKeyInput.disabled = false;
+                        return false;
+                    }
+                 }
+
+                // Populate model select dropdowns (remains mostly the same)
+                function populateModelSelectors(placeholderText = "-- Select a Model --") { /* ... function content remains the same ... */
+                    console.log("populateModelSelectors called with models:", availableModels, "Placeholder:", placeholderText);
+                    botElements.forEach(botUI => {
+                        const select = botUI.modelSelect; const currentSelection = select.value;
+                        select.innerHTML = ''; const placeholderOption = document.createElement('option');
+                        placeholderOption.value = ""; placeholderOption.textContent = placeholderText; placeholderOption.disabled = true; placeholderOption.selected = true;
+                        select.appendChild(placeholderOption); let previousValueExists = false;
+                        availableModels.forEach(model => {
+                            const option = document.createElement('option'); option.value = model.name;
+                            option.textContent = `${model.displayName} (${model.name.split('/')[1]})`; select.appendChild(option);
+                            if (model.name === currentSelection) { option.selected = true; previousValueExists = true; placeholderOption.selected = false; }
+                        });
+                        if (!previousValueExists && currentSelection) {
+                             select.value = ""; const botIndex = botElements.indexOf(botUI);
+                            if (bots[botIndex].modelId === currentSelection) { bots[botIndex].modelId = ""; }
+                         }
+                    });
+                     updateSendButtonState();
+                }
+
+
+                // Load current configuration into modal AND main settings
+                function loadCurrentConfig() {
+                     modalBotNameSpans.forEach((span, index) => {
+                         span.textContent = bots[index].name || `Bot ${index + 1}`;
+                     });
+
+                     bots.forEach((bot, index) => {
+                         const prefix = botElements[index].configPrefix;
+                         const ui = botElements[index];
+
+                         // Load main settings
+                         ui.nameInput.value = bot.name;
+                         ui.enabledCheckbox.checked = bot.isEnabled; // Load checkbox state
+                         if (availableModels.length > 0 && ui.modelSelect.querySelector(`option[value="${bot.modelId}"]`)) {
+                             ui.modelSelect.value = bot.modelId;
+                         } else {
+                             ui.modelSelect.value = ""; // Reset if model not found/loaded
+                         }
+
+                         // Load modal settings
+                         document.getElementById(`${prefix}-temperature`).value = bot.config.temperature;
+                         document.getElementById(`${prefix}-max-tokens`).value = bot.config.maxOutputTokens;
+                         document.getElementById(`${prefix}-top-p`).value = bot.config.topP;
+                         document.getElementById(`${prefix}-system-prompt`).value = bot.systemPrompt; // Load individual prompt
+                     });
+                     // REMOVED: document.getElementById('system-prompt').value = contextConfig.systemPrompt;
+                 }
+
+                 // Save configuration from modal AND main settings
+                async function saveConfiguration() {
+                    console.log("Saving configuration...");
+                    const oldApiKey = apiKey;
+                    apiKey = apiKeyInput.value.trim();
+                    autoTurnsInput.value = Math.max(0, parseInt(autoTurnsInput.value) || 0);
+                    let keyChanged = oldApiKey !== apiKey;
+
+                    bots.forEach((bot, index) => {
+                        const ui = botElements[index];
+                        const prefix = ui.configPrefix;
+
+                        // Save main settings
+                        bot.name = ui.nameInput.value.trim() || `Bot ${index + 1}`;
+                        bot.isEnabled = ui.enabledCheckbox.checked; // Save checkbox state
+                        bot.modelId = ui.modelSelect.value;
+
+                        // Save modal settings
+                        bot.config.temperature = parseFloat(document.getElementById(`${prefix}-temperature`).value);
+                        bot.config.maxOutputTokens = parseInt(document.getElementById(`${prefix}-max-tokens`).value);
+                        bot.config.topP = parseFloat(document.getElementById(`${prefix}-top-p`).value);
+                        bot.systemPrompt = document.getElementById(`${prefix}-system-prompt`).value || DEFAULT_SYSTEM_PROMPT; // Save individual prompt, use default if empty
+                     });
+
+                    // REMOVED: contextConfig.systemPrompt = document.getElementById('system-prompt').value;
+
+                    configModal.style.display = "none";
+
+                    if (keyChanged) {
+                         console.log("API key changed, re-initializing and fetching models...");
+                         await initializeAndFetchModels();
+                    } else {
+                        console.log("API key unchanged, updating state.");
+                         updateSendButtonState();
+                    }
+
+                    console.log("Configuration saved:", { apiKey: apiKey ? '******' : 'Not Set', bots }); // Removed contextConfig log
+                    modalBotNameSpans.forEach((span, index) => {
+                        span.textContent = bots[index].name;
+                    });
+                }
+
+                // Helper: Format time
+                function formatTime(date) { return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }); }
+
+                 // Helper: Add message structure to DOM
+                function addMessageStructure(sender, senderType, initialContent = '') { /* ... no changes needed ... */
+                    messageCounter++; const messageId = `msg-${messageCounter}`; const messageDiv = document.createElement('div');
+                    messageDiv.className = `message ${senderType}`; messageDiv.id = messageId; const headerDiv = document.createElement('div');
+                    headerDiv.className = 'message-header'; const senderDiv = document.createElement('div'); senderDiv.className = 'sender';
+                    senderDiv.textContent = sender; const metadataSpan = document.createElement('span'); metadataSpan.className = 'metadata';
+                    metadataSpan.textContent = formatTime(new Date());
+                    if (senderType === 'user') { headerDiv.appendChild(metadataSpan); headerDiv.appendChild(senderDiv); }
+                    else { headerDiv.appendChild(senderDiv); headerDiv.appendChild(metadataSpan); }
+                    const bubbleDiv = document.createElement('div'); bubbleDiv.className = 'bubble';
+                    if (initialContent === 'Thinking...') bubbleDiv.classList.add('thinking');
+                    bubbleDiv.textContent = initialContent; messageDiv.appendChild(headerDiv); messageDiv.appendChild(bubbleDiv);
+                    const placeholder = chatContainer.querySelector('.system-info'); if(placeholder) placeholder.remove();
+                    chatContainer.appendChild(messageDiv); chatContainer.scrollTop = chatContainer.scrollHeight; return messageDiv;
+                }
+
+                // Helper: Update/Append message content functions
+                function updateMessageContent(messageElement, content) { /* ... no changes needed ... */
+                    const bubble = messageElement.querySelector('.bubble'); if (bubble) { bubble.textContent = content; bubble.classList.remove('thinking'); } chatContainer.scrollTop = chatContainer.scrollHeight; }
+                function appendMessageContent(messageElement, token) { /* ... no changes needed ... */
+                    const bubble = messageElement.querySelector('.bubble'); if (bubble) { if (bubble.classList.contains('thinking')) { bubble.textContent = ''; bubble.classList.remove('thinking'); } bubble.textContent += token; chatContainer.scrollTop = chatContainer.scrollHeight; } }
+
+                // Helper: Prepare context for Gemini API - Takes specific system prompt
+                function prepareContext(history, systemPrompt) { // <-- Takes systemPrompt now
+                    const contents = [];
+                    // Use the provided system prompt
+                    if (systemPrompt) {
+                         contents.push({ role: "user", parts: [{ text: systemPrompt }] });
+                         contents.push({ role: "model", parts: [{ text: "Understood. I will act as instructed." }] }); // Standard model ack
+                    }
+                    // Add chat history
+                    history.forEach(msg => {
+                        // Map internal roles (user, llm1, llm2) to API roles (user, model)
+                        let apiRole = (msg.role === 'user') ? 'user' : 'model';
+                        // Prepend bot identifier to model messages for clarity in history context
+                        let content = (msg.role === 'user') ? msg.content : `(${msg.role}): ${msg.content}`;
+
+                        // Ensure parts is an array
+                        const parts = [{ text: content }]; // Assuming text-only for now
+
+                        if (contents.length > 0 && contents[contents.length - 1].role === apiRole) {
+                            // Merge parts if the role is the same as the previous one (less common here)
+                             contents[contents.length - 1].parts.push(...parts);
+                         } else {
+                             contents.push({ role: apiRole, parts: parts });
+                         }
+                    });
+                    return contents;
+                }
+
+
+                // Helper: Set UI control states
+                function setControlsState(isGenerating) {
+                    const isApiKeySet = !!apiKey;
+                    const isReadyForApiCall = isApiKeySet && modelsLoaded;
+                    const isSdkReady = !!genAI;
+                    // Check if AT LEAST ONE bot is enabled AND has a model selected
+                    const atLeastOneBotActive = bots.some(b => b.isEnabled && b.modelId);
+
+                    const enableSend = isSdkReady && modelsLoaded && atLeastOneBotActive && !isGenerating;
+                    userInput.disabled = !enableSend;
+                    sendButton.disabled = !enableSend;
+
+                    stopButton.disabled = !isGenerating;
+                    configButton.disabled = isGenerating;
+
+                    const isLoading = modelLoadingStatus.style.display !== 'none' && (modelLoadingStatus.textContent.includes("Loading") || modelLoadingStatus.textContent.includes("Initializing"));
+                    apiKeyInput.disabled = isGenerating || isLoading;
+
+                    botElements.forEach(botUI => {
+                        botUI.nameInput.disabled = isGenerating;
+                        // Selectors enabled only if models loaded and not generating
+                        botUI.modelSelect.disabled = isGenerating || !modelsLoaded;
+                        botUI.enabledCheckbox.disabled = isGenerating; // Disable checkbox during generation
+                    });
+                    autoTurnsInput.disabled = isGenerating;
+                }
+
+
+                // Update Send Button state based on config
+                function updateSendButtonState() {
+                     setControlsState(isBotConversationActive);
+                }
+
+
+                // Core: Query Gemini LLM with Streaming (Uses genAI instance and specific prompt)
+                async function queryGeminiStream(botIndex, history, messageElement) {
+                     if (!genAI) { /* ... SDK check ... */ return { content: "", error: true }; }
+                     if (!bots[botIndex].modelId) { /* ... model check ... */ return { content: "", error: true }; }
+
+                    const bot = bots[botIndex];
+                    // *** Get the specific system prompt for this bot ***
+                    const specificSystemPrompt = bot.systemPrompt || ""; // Use empty string if somehow undefined
+
+                    let accumulatedContent = "";
+                    let hasError = false;
+                    try {
+                        const model = genAI.getGenerativeModel({ model: bot.modelId });
+                        const generationConfig = {
+                             temperature: bot.config.temperature,
+                             maxOutputTokens: bot.config.maxOutputTokens,
+                             topP: bot.config.topP,
+                        };
+                        // *** Pass the specific prompt to prepareContext ***
+                        const chatContents = prepareContext(history, specificSystemPrompt);
+
+                        console.log(`Bot ${botIndex + 1} (${bot.name}) Request:`, { generationConfig, systemPromptUsed: specificSystemPrompt, contents: chatContents });
+
+                        const result = await model.generateContentStream({
+                             contents: chatContents,
+                             generationConfig: generationConfig
+                        });
+                         currentAbortController = new AbortController(); const signal = currentAbortController.signal;
+                        console.log(`Bot ${botIndex + 1} (${bot.name}) - Starting stream read...`);
+                        for await (const chunk of result.stream) { /* ... Stream reading loop (no change needed) ... */
+                            if (signal.aborted) { console.log(`Stream reading aborted for Bot ${botIndex + 1}`); accumulatedContent += " [Stopped]"; updateMessageContent(messageElement, accumulatedContent); hasError = true; break; }
+                            if (chunk.promptFeedback?.blockReason) { console.warn(`Bot ${botIndex + 1} BLOCKED. Reason: ${chunk.promptFeedback.blockReason}`); accumulatedContent += ` [Blocked: ${chunk.promptFeedback.blockReason}]`; hasError = true; break; }
+                            const chunkText = chunk.text(); if (chunkText) { accumulatedContent += chunkText; appendMessageContent(messageElement, chunkText); } }
+                        console.log(`Bot ${botIndex + 1} (${bot.name}) - Finished stream read. Accumulated: '${accumulatedContent}'`);
+                    } catch (error) { /* ... Error handling (no change needed) ... */
+                         if (error.name === 'AbortError') {} else { console.error(`Error querying Gemini Bot ${botIndex + 1}:`, error); let errorMsg = `[Error: ${error.message}]`; /* More detailed error messages */ updateMessageContent(messageElement, errorMsg); accumulatedContent = errorMsg; hasError = true; }
+                    } finally { currentAbortController = null; }
+                    if (!accumulatedContent && !hasError) { updateMessageContent(messageElement, "[Empty Response]"); accumulatedContent = "[Empty Response]"; }
+                    else if (!hasError) { updateMessageContent(messageElement, accumulatedContent); }
+                    return { content: accumulatedContent, error: hasError };
+                }
+
+                 // Core: Handle a single bot's turn (no significant change needed)
+                async function botConversationTurn(activeBotIndices, currentTurnIndex, turnsLeft) { /* ... remains the same ... */
+                    if (!isBotConversationActive) return;
+                    const botIndex = activeBotIndices[currentTurnIndex % activeBotIndices.length]; const bot = bots[botIndex]; const senderType = `llm${botIndex + 1}`;
+                    const messageElement = addMessageStructure(bot.name, senderType, 'Thinking...');
+                    const result = await queryGeminiStream(botIndex, chatHistory, messageElement); // Calls updated query function
+                    if (!isBotConversationActive) return;
+                    if (!result.error && result.content && !result.content.startsWith("[Error:") && result.content !== "[Empty Response]" && result.content !== "[Stopped]") {
+                         chatHistory.push({ role: senderType, content: result.content }); // Use llm1, llm2 etc role
+                    } else if (result.error && result.content.includes("[Stopped]")) { endBotConversation(); return;
+                    } else if (result.error) { console.warn(`Error from Bot ${botIndex + 1}, stopping conversation.`); endBotConversation(); return; }
+                    if (turnsLeft > 0 && isBotConversationActive) {
+                        setTimeout(() => { if (!isBotConversationActive) return; botConversationTurn(activeBotIndices, currentTurnIndex + 1, turnsLeft - 1); }, 100);
+                    } else { endBotConversation(); }
+                }
+
+
+                // Core: Start the bot-to-bot conversation sequence
+                function startBotConversation() {
+                     if (isBotConversationActive) return;
+                     if (!genAI) { addMessageStructure("System", "llm1", "[System: Cannot start conversation, SDK not initialized. Check API Key.]"); return; }
+
+                     // *** Updated filter for active bots ***
+                     const activeBotIndices = bots
+                        .map((bot, index) => (bot.isEnabled && bot.modelId) ? index : -1)
+                        .filter(index => index !== -1);
+
+                     if (activeBotIndices.length === 0) {
+                          addMessageStructure("System", "llm1", "[System: No active bots configured (Ensure bots are enabled and have models selected).]");
+                         return;
+                     }
+
+                     const autoTurnsPerBot = parseInt(autoTurnsInput.value) || 0;
+                     const totalTurns = autoTurnsPerBot * activeBotIndices.length;
+                     if (totalTurns <= 0) { console.log("Auto-turns 0, not starting bot chat."); setControlsState(false); return; }
+
+                     const activeBotNames = activeBotIndices.map(i => bots[i].name).join(', ');
+                     console.log(`Starting bot conversation. Active bots: ${activeBotNames}. Total turns: ${totalTurns}`);
+                     isBotConversationActive = true; setControlsState(true);
+                     setTimeout(() => { if (!isBotConversationActive) return; botConversationTurn(activeBotIndices, 0, totalTurns - 1); }, 100);
+                }
+
+                // Core: Stop the bot-to-bot conversation
+                function endBotConversation(forceStop = false) { /* ... remains the same ... */
+                     if (!isBotConversationActive && !forceStop) return; const wasActive = isBotConversationActive;
+                     isBotConversationActive = false; if (currentAbortController) { currentAbortController.abort(); currentAbortController = null; }
+                     setControlsState(false); if (wasActive || forceStop) console.log("Bot conversation stopped."); }
+
+                // Core: Handle user sending a message
+                async function handleSendMessage() { /* ... remains the same ... */
+                    const message = userInput.value.trim(); if (message === '' || isBotConversationActive || !genAI) return;
+                    endBotConversation(true); userInput.value = ''; addMessageStructure('You', 'user', message);
+                    chatHistory.push({ role: "user", content: message }); startBotConversation(); }
+
+                // --- Event Listener Assignments ---
+
+                apiKeyInput.addEventListener('change', async () => { await initializeAndFetchModels(); });
+                sendButton.addEventListener('click', handleSendMessage);
+                userInput.addEventListener('keydown', function(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } });
+                stopButton.addEventListener('click', () => { endBotConversation(true); });
+                configButton.onclick = function() { loadCurrentConfig(); configModal.style.display = "block"; };
+                closeModalBtn.onclick = function() { configModal.style.display = "none"; };
+                saveConfigBtn.onclick = async function() { await saveConfiguration(); };
+                window.onclick = function(event) { if (event.target == configModal) configModal.style.display = "none"; };
+
+                botElements.forEach((botUI, index) => {
+                     botUI.nameInput.addEventListener('input', () => { bots[index].name = botUI.nameInput.value.trim() || `Bot ${index + 1}`; modalBotNameSpans[index].textContent = bots[index].name; });
+                     botUI.modelSelect.addEventListener('change', () => { bots[index].modelId = botUI.modelSelect.value; updateSendButtonState(); });
+                     // Add listener for the checkbox
+                     botUI.enabledCheckbox.addEventListener('change', () => { bots[index].isEnabled = botUI.enabledCheckbox.checked; updateSendButtonState(); });
+                 });
+
+
+                // --- Initial Setup ---
+                console.log("MultiGemini Chat Initializing...");
+                modelLoadingStatus.textContent = "API Key needed"; modelLoadingStatus.style.display = 'inline';
+                const savedApiKey = localStorage.getItem('geminiApiKey');
+                if (savedApiKey) { apiKeyInput.value = savedApiKey; initializeAndFetchModels(); }
+                else { populateModelSelectors("-- Enter API Key to Load Models --"); setControlsState(false); apiKeyInput.disabled = false; }
+                window.addEventListener('beforeunload', () => { if (apiKeyInput.value.trim()) localStorage.setItem('geminiApiKey', apiKeyInput.value.trim()); else localStorage.removeItem('geminiApiKey'); });
+                loadCurrentConfig(); // Load defaults/saved state into UI elements
+
+            });
+        } // End of check for window.GoogleGenerativeAI
+    </script>
+</body>
+</html>
