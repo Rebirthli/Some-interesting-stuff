@@ -1,0 +1,19 @@
+# 忽略所有.env文件（包含敏感信息如API密钥）
+*.env
+.env
+
+# 忽略所有虚拟环境目录
+venv/
+**/venv/
+
+# 忽略Python编译文件
+__pycache__/
+*.py[cod]
+*$py.class
+
+# 忽略日志文件
+*.log
+
+# 忽略系统文件
+.DS_Store
+Thumbs.db
