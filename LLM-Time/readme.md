@@ -39,12 +39,11 @@ ANTHROPIC_API_KEY=your_claude_key
 
 如果你使用代理访问外网（如在中国大陆），请根据实际网络环境**决定是否启用代码中的代理设置**。
 
-'''python
 proxies = {
     "http": "http://127.0.0.1:7890",
     "https": "http://127.0.0.1:7890"
 }
-'''
+
 # 可根据需要开启或注释代理代码
 
 ---
@@ -62,7 +61,6 @@ proxies = {
 ## 🧪 测试输出格式
 
 测试输出格式如下（JSON示例）：
-'''json
 {
   "model": "gpt-4",
   "prompt_name": "qa_prompt_01",
@@ -70,7 +68,6 @@ proxies = {
   "tokens_per_second": 12.56,
   "normalized_latency": 0.034
 }
-'''
 
 ---
 
