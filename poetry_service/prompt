@@ -1,0 +1,77 @@
+**角色：** 你是一名资深的Python全栈工程师，精通FastAPI、PostgreSQL、Docker以及AI模型的API集成。
+
+**任务：** 根据以下规划，为我生成“智能古诗词搜索服务”项目的完整代码。
+
+**项目总体目标：**
+构建一个双引擎的古诗词搜索API。引擎一用于快速关键词搜索，引擎二用于处理单个或多个抽象“物象”词语的语义搜索。
+
+**技术栈：**
+*   **后端:** FastAPI
+*   **数据库:** PostgreSQL 14+
+*   **数据库扩展:** `pgvector`, `zhparser`, `pg_trgm`
+*   **向量模型:** 通过API调用阿里云通义千问 (`text-embedding-v2`, 1536维)
+*   **环境:** Docker & Docker Compose
+
+**项目文件结构 (在 `poetry_service` 目录下):**
+```
+poetry_service/
+├── .env
+├── .gitignore
+├── docker-compose.yml
+├── postgres/
+│   └── Dockerfile
+├── fastapi_app/
+│   ├── Dockerfile
+│   ├── main.py
+│   └── requirements.txt
+└── scripts/
+    ├── import_data.py
+    └── requirements.txt
+```
+
+**请按顺序生成以下文件的内容：**
+
+**1. 配置文件 (`.env`, `.gitignore`, `requirements.txt`)**
+*   **`.env`:** 创建包含`ALI_API_KEY`, `EMBEDDING_MODEL`, `EMBEDDING_DIMENSION`变量的模板。
+*   **`.gitignore`:** 确保忽略`.env`, `__pycache__/`等。
+*   **`fastapi_app/requirements.txt`:** 包含`fastapi`, `uvicorn`, `psycopg2-binary`, `pydantic`, `python-dotenv`, `requests`, `pgvector`, `numpy`。
+*   **`scripts/requirements.txt`:** 包含`psycopg2-binary`, `opencc-python-rebuilt`, `python-dotenv`, `requests`, `tqdm`。
+
+**2. Docker配置 (`Dockerfile`, `docker-compose.yml`)**
+*   **`postgres/Dockerfile`:** 使用`pgvector/pgvector:pg14`作为基础镜像，并安装`postgresql-14-zhparser`和`postgresql-contrib`。
+*   **`fastapi_app/Dockerfile`:** 创建一个标准的Python 3.10 slim环境来运行FastAPI应用。
+*   **`docker-compose.yml`:**
+    *   定义`db`和`api`两个服务。
+    *   `db`服务使用`postgres`目录进行构建。
+    *   `api`服务使用`fastapi_app`目录进行构建，并通过`env_file`指令加载`.env`文件。
+    *   确保`api`服务依赖于`db`服务。
+
+**3. 数据库初始化SQL**
+*   生成一个SQL脚本。该脚本需要：
+    1.  创建`vector`, `zhparser`, `pg_trgm`扩展。
+    2.  创建`poems`表 (`id`, `title`, `author`, `dynasty`, `full_content`)。
+    3.  创建`lines`表 (`id`, `poem_id`, `content`, `embedding VECTOR(1536)`)。
+
+**4. 数据导入脚本 (`scripts/import_data.py`)**
+*   生成一个Python脚本，其逻辑必须包括：
+    1.  从`.env`文件加载环境变量。
+    2.  连接到PostgreSQL数据库。
+    3.  遍历**项目外部同级目录**`chinese-poetry`下的所有JSON文件。
+    4.  读取诗词，进行繁简转换，并将整首诗存入`poems`表。
+    5.  将每首诗拆分为句子，然后**分批（batch）**调用阿里云API获取每句诗的embedding。
+    6.  将句子的内容和其对应的embedding存入`lines`表。
+    7.  **在所有数据导入完成后**，为`lines`表的`embedding`字段创建`IVFFlat`索引。
+    8.  使用`tqdm`显示处理进度。
+
+**5. 核心API应用 (`fastapi_app/main.py`)**
+*   生成FastAPI应用代码，其逻辑必须包括：
+    1.  使用`psycopg2.pool.SimpleConnectionPool`创建数据库连接池以提高性能。
+    2.  创建一个`/health`端点用于健康检查。
+    3.  创建一个`/search`端点，用于**关键词搜索**，使用`websearch_to_tsquery`处理多词语查询。
+    4.  创建一个`/search/semantic`端点，用于**语义搜索**。
+        *   此接口接收一个`keywords`查询参数，内容是**逗号分隔**的物象词语。
+        *   代码需要能健壮地处理单个或多个词语。
+        *   获取每个词语的embedding。
+        *   使用`numpy.mean`将多个词语的向量**平均化**，形成一个融合意象的中心向量。
+        *   使用这个中心向量和`pgvector`的`<=>`操作符在`lines`表中进行最近邻搜索。
+    5.  包含健壮的错误处理，特别是对外部API调用和数据库操作。

@@ -1,0 +1,91 @@
+✅ 古诗词搜索服务 - 最终待办事项列表
+第一阶段：项目结构与配置
+
+确认项目结构：
+
+确保您的工作区目录，包含并列的 chinese-poetry 和 poetry_service 文件夹。
+
+code
+Code
+download
+content_copy
+expand_less
+
+Your_Workspace/
+├── chinese-poetry/      <-- 诗词数据源
+└── poetry_service/      <-- 我们的项目代码
+
+在 poetry_service 中创建文件：
+
+在 poetry_service 内部，创建以下完整的目录和空白文件。
+
+code
+Code
+download
+content_copy
+expand_less
+IGNORE_WHEN_COPYING_START
+IGNORE_WHEN_COPYING_END
+poetry_service/
+├── .env
+├── .gitignore
+├── docker-compose.yml
+├── postgres/
+│   └── Dockerfile
+├── fastapi_app/
+│   ├── Dockerfile
+│   ├── main.py
+│   └── requirements.txt
+└── scripts/
+    ├── import_data.py
+    └── requirements.txt
+
+填充所有配置文件:
+
+填充 .env 文件，写入你的阿里云API密钥和模型配置。
+
+填充 .gitignore 文件，忽略 .env 等敏感信息。
+
+填充 docker-compose.yml 文件。
+
+填充 postgres/Dockerfile 文件。
+
+填充 fastapi_app/Dockerfile 文件。
+
+填充 fastapi_app/requirements.txt 和 scripts/requirements.txt 文件。
+
+第二阶段：数据库初始化
+
+启动数据库服务: 在终端运行 docker compose up -d db。
+
+连接到数据库: 使用数据库客户端连接到 localhost:5432。
+
+执行 SQL 建表: 运行完整的 SQL 脚本，以创建扩展、poems 表和 lines 表。
+
+第三阶段：数据导入
+
+填充数据导入脚本: 将代码填入 scripts/import_data.py。
+
+安装本地依赖: 在本地终端为导入脚本安装 requirements.txt 中的库。
+
+运行数据导入: 执行 python scripts\import_data.py，并等待其完成。
+
+创建向量索引: 数据导入完成后，在数据库中为 lines 表的 embedding 字段创建 IVFFlat 索引。
+
+第四阶段：API 实现与最终测试
+
+填充 API 核心代码: 将最终的、包含连接池和向量平均化逻辑的代码填入 fastapi_app/main.py。
+
+启动完整应用: 在终端中运行 docker compose up --build。
+
+进行全面测试:
+
+健康检查: 访问 /health 接口，确认服务和数据库连接正常。
+
+关键词搜索: 访问 /search 接口，测试多词语的精确匹配 (e.g., keyword=夜来 风雨)。
+
+语义搜索 (单个物象): 访问 /search/semantic 接口，测试单个物象词语 (e.g., keywords=人流如织)。
+
+语义搜索 (多个物象): 访问 /search/semantic 接口，测试逗号分隔的多个物象词语 (e.g., keywords=黛瓦飞檐,扶栏生烟)，验证其健壮性。
+
+边界情况测试: 使用空关键词或无关词语测试两个搜索接口，确保服务不会崩溃并能返回合理结果（如空列表或错误提示）。
