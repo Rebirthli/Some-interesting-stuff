@@ -1,0 +1,46 @@
+services:
+  db:
+    build:
+      context: ./postgres
+      dockerfile: Dockerfile
+    container_name: poetry_postgres
+    environment:
+      POSTGRES_DB: poetry_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql
+      - ./postgres/search_functions.sql:/docker-entrypoint-initdb.d/02-search_functions.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d poetry_db"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  api:
+    build:
+      context: ./fastapi_app
+      dockerfile: Dockerfile
+    container_name: poetry_api
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    volumes:
+      - ./fastapi_app:/app
+    environment:
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=poetry_db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres123
+
+volumes:
+  postgres_data:

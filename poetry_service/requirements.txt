@@ -1,0 +1,23 @@
+# 智能古诗词搜索服务 - 统一依赖文件
+# 包含FastAPI应用和数据导入脚本的所有依赖
+
+# FastAPI Web框架
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pydantic==2.5.0
+
+# 数据库相关
+psycopg2-binary==2.9.7
+pgvector==0.2.4
+
+# 工具库
+python-dotenv==1.0.0
+requests==2.31.0
+numpy==1.24.3
+
+# 数据导入专用
+opencc==1.1.7
+tqdm==4.66.1
+
+# 可选：CORS支持（如果需要）
+# python-multipart==0.0.6
